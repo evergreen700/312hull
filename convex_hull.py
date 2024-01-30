@@ -132,13 +132,8 @@ def QPointHull(points):
             while not isBelow(leftHull[lowerLeftEndIndex], rightHull[lowerRightEndIndex], rightHull):
                 lowerRightEndIndex = (lowerRightEndIndex + 1) % len(rightHull)
                 modified = True
-        #upperLeftEnd = leftHull[upperLeftIndex]
-        #lowerLeftEnd = leftHull[lowerLeftIndex]
-        #upperRightEnd = rightHull[upperRightIndex]
-        #lowerRightEnd = rightHull[lowerRightIndex]
 
         finalPoints = []
-
         for i in range(0, len(leftHull)):
             if (leftHull[i].y() >= leftHull[-1].y()) & (i <= upperLeftEndIndex):
                 finalPoints.append(leftHull[i])
@@ -154,27 +149,27 @@ def QPointHull(points):
         return finalPoints
 
 def isAbove(leftEnd, rightEnd, testpoints):
-    testLine = QLineF(leftEnd, rightEnd)
+    slope = (rightEnd.y()-leftEnd.y())/(rightEnd.x()-leftEnd.x())
     for p in testpoints:
         if p not in (leftEnd, rightEnd):
-            if QLineF(leftEnd, p).angleTo(testLine) < 180:
+            if (p.x()-leftEnd.x())*slope+leftEnd.y() < p.y():
                 return False
     return True
 
 def isBelow(leftEnd, rightEnd, testpoints):
-    testLine = QLineF(leftEnd, rightEnd)
+    slope = (rightEnd.y() - leftEnd.y()) / (rightEnd.x() - leftEnd.x())
     for p in testpoints:
         if p not in (leftEnd, rightEnd):
-            if QLineF(leftEnd, p).angleTo(testLine) > 180:
+            if (p.x() - leftEnd.x()) * slope + leftEnd.y() > p.y():
                 return False
     return True
 
 def pointsToLines(points):
-    equator = QLineF(points[0],points[-1])
+    slope = (points[-1].y() - points[0].y()) / (points[-1].x() - points[0].x())
     topPoints = [points[0]]
     bottomPoints = []
     for p in points[1:-1]:
-        if QLineF(points[0], p).angleTo(equator) < 180:
+        if (p.x() - points[0].x()) * slope + points[0].y() > p.y():
             topPoints.append(p)
         else:
             bottomPoints.append(p)
