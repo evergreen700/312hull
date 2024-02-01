@@ -113,8 +113,8 @@ def topBottomSplit(points):
     topPoints.append(points[-1])
     bottomPoints.append(points[-1])
 
-    topHull = QPointTop2(topPoints)
-    bottomHull = QPointBottom2(bottomPoints[::-1])
+    topHull = QPointTopHull(topPoints)
+    bottomHull = QPointBottomHull(bottomPoints[::-1])
     orderedPoints = topHull[:-1]+bottomHull[:-1]
     return [QLineF(orderedPoints[i], orderedPoints[(i + 1) % len(orderedPoints)]) for i in range(len(orderedPoints))]
 
@@ -130,10 +130,10 @@ def QPointTopHull(points):
         modified = True
         while modified:
             modified = False
-            while not isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull): #(getAngle(leftHull[leftEndIndex-1], leftHull[leftEndIndex], rightHull[rightEndIndex]) < 180) & (leftEndIndex > 0):
+            while isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull): #(getAngle(leftHull[leftEndIndex-1], leftHull[leftEndIndex], rightHull[rightEndIndex]) < 180) & (leftEndIndex > 0):
                 leftEndIndex = (leftEndIndex - 1)
                 modified = True
-            while not isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull): #(getAngle(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull[rightEndIndex+1-len(rightHull)]) < 180) & (rightEndIndex < len(rightHull)):
+            while isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull): #(getAngle(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull[rightEndIndex+1-len(rightHull)]) < 180) & (rightEndIndex < len(rightHull)):
                 rightEndIndex = (rightEndIndex + 1)
                 modified = True
 
@@ -152,72 +152,30 @@ def QPointBottomHull(points):
         modified = True
         while modified:
             modified = False
-            while not isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull):
-                leftEndIndex = (leftEndIndex - 1) % len(leftHull)
+            while isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull):
+                leftEndIndex = (leftEndIndex - 1)
                 modified = True
-            while not isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull):
-                rightEndIndex = (rightEndIndex + 1) % len(rightHull)
+            while isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull):
+                rightEndIndex = (rightEndIndex + 1)
                 modified = True
 
         finalPoints = leftHull[:leftEndIndex+1]+rightHull[rightEndIndex:]
         return finalPoints
 
 
-def getAngle(a, b, c):
-    return QLineF(b, a).angleTo(QLineF(b,c))
-def isConvex(left, center, right):
-    slope = (right.y()-left.y())/(right.x()-left.x())
-    return (center.x()-left.x())*slope+left.y() < center.y()
 
 def isBelow(leftEnd, rightEnd, testpoints):
     slope = (rightEnd.y() - leftEnd.y()) / (rightEnd.x() - leftEnd.x())
     for p in testpoints:
         if p not in (leftEnd, rightEnd):
             if ((p.x() - leftEnd.x()) * slope + leftEnd.y()) < p.y():
-                return False
-    return True
+                return True
+    return False
 
 def isAbove(leftEnd, rightEnd, testpoints):
     slope = (rightEnd.y() - leftEnd.y()) / (rightEnd.x() - leftEnd.x())
     for p in testpoints:
         if p not in (leftEnd, rightEnd):
             if ((p.x() - leftEnd.x()) * slope + leftEnd.y()) > p.y():
-                return False
-    return True
-
-def pointsToLines(points):
-    slope = (points[-1].y() - points[0].y()) / (points[-1].x() - points[0].x())
-    topPoints = [points[0]]
-    bottomPoints = []
-    for p in points[1:-1]:
-        if (p.x() - points[0].x()) * slope + points[0].y() > p.y():
-            topPoints.append(p)
-        else:
-            bottomPoints.append(p)
-    orderedPoints = topPoints + [points[-1]] + bottomPoints[::-1]
-    return [QLineF(orderedPoints[i],orderedPoints[(i+1)%len(points)]) for i in range(len(points))]
-
-def QPointTop2(points):
-    finalPoints = points[:2]
-    for i in range(2, len(points)):
-        finalPoints.append(points[i])
-        while len(finalPoints)>2:
-            if isAbove2(finalPoints[-3], finalPoints[-2], finalPoints[-1]):
-                break
-            finalPoints.pop(-2)
-    return finalPoints
-
-def QPointBottom2(points):
-    finalPoints = points[:2]
-    for i in range(2, len(points)):
-        finalPoints.append(points[i])
-        while len(finalPoints)>2:
-            if not isAbove2(finalPoints[-3], finalPoints[-2], finalPoints[-1]):
-                break
-            finalPoints.pop(-2)
-    return finalPoints
-def isAbove2(leftEnd, p, rightEnd):
-    slope = (rightEnd.y() - leftEnd.y()) / (rightEnd.x() - leftEnd.x())
-    return ((p.x() - leftEnd.x()) * slope + leftEnd.y()) < p.y()
-
-
+                return True
+    return False
