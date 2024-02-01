@@ -67,11 +67,11 @@ class ConvexHullSolver(QObject):
 
         t1 = time.time()
         # TODO: SORT THE POINTS BY INCREASING X-VALUE
-        points = QPointXSort(points)
+        points.sort(key=lambda p: p.x())
         t2 = time.time()
         t3 = time.time()
         # this is a dummy polygon of the first 3 unsorted points
-        polygon = pointsToLines(QPointHull(points))
+        polygon = topBottomSplit(points)
 
         #[QLineF(points[i],points[(i+1)%3]) for i in range(3)]
         # TODO: REPLACE THE LINE ABOVE WITH A CALL TO YOUR DIVIDE-AND-CONQUER CONVEX HULL SOLVER
@@ -101,66 +101,87 @@ def QPointXSort(points):
         pointsFinal = pointsFinal+points1+points2
         return pointsFinal
 
-def QPointHull(points):
+def topBottomSplit(points):
+    slope = (points[-1].y() - points[0].y()) / (points[-1].x() - points[0].x())
+    topPoints = [points[0]]
+    bottomPoints = [points[0]]
+    for p in points[1:-1]:
+        if (p.x() - points[0].x()) * slope + points[0].y() < p.y():
+            topPoints.append(p)
+        else:
+            bottomPoints.append(p)
+    topPoints.append(points[-1])
+    bottomPoints.append(points[-1])
+
+    topHull = QPointTop2(topPoints)
+    bottomHull = QPointBottom2(bottomPoints[::-1])
+    orderedPoints = topHull[:-1]+bottomHull[:-1]
+    return [QLineF(orderedPoints[i], orderedPoints[(i + 1) % len(orderedPoints)]) for i in range(len(orderedPoints))]
+
+def QPointTopHull(points):
     if len(points) <= 3:
         return points
     else:
-        leftHull = QPointHull(points[:len(points)//2])
-        rightHull = QPointHull(points[len(points)//2:])
+        leftHull = QPointTopHull(points[:len(points)//2])
+        rightHull = QPointTopHull(points[len(points)//2:])
         #find upper connection first:
-        upperLeftEndIndex = len(leftHull) - 1
-        upperRightEndIndex = 0
+        leftEndIndex = len(leftHull) - 1
+        rightEndIndex = 0
         modified = True
         while modified:
             modified = False
-            while not isAbove(leftHull[upperLeftEndIndex], rightHull[upperRightEndIndex], leftHull):
-                upperLeftEndIndex = (upperLeftEndIndex - 1) % len(leftHull)
+            while not isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull): #(getAngle(leftHull[leftEndIndex-1], leftHull[leftEndIndex], rightHull[rightEndIndex]) < 180) & (leftEndIndex > 0):
+                leftEndIndex = (leftEndIndex - 1)
                 modified = True
-            while not isAbove(leftHull[upperLeftEndIndex], rightHull[upperRightEndIndex], rightHull):
-                upperRightEndIndex = (upperRightEndIndex + 1) % len(rightHull)
-                modified = True
-
-        #Basically the same for the lower connection:
-        lowerLeftEndIndex = len(leftHull) - 1
-        lowerRightEndIndex = 0
-        modified = True
-        while modified:
-            modified = False
-            while not isBelow(leftHull[lowerLeftEndIndex], rightHull[lowerRightEndIndex], leftHull):
-                lowerLeftEndIndex = (lowerLeftEndIndex - 1) % len(leftHull)
-                modified = True
-            while not isBelow(leftHull[lowerLeftEndIndex], rightHull[lowerRightEndIndex], rightHull):
-                lowerRightEndIndex = (lowerRightEndIndex + 1) % len(rightHull)
+            while not isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull): #(getAngle(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull[rightEndIndex+1-len(rightHull)]) < 180) & (rightEndIndex < len(rightHull)):
+                rightEndIndex = (rightEndIndex + 1)
                 modified = True
 
-        finalPoints = []
-        for i in range(0, len(leftHull)):
-            if (leftHull[i].y() >= leftHull[-1].y()) & (i <= upperLeftEndIndex):
-                finalPoints.append(leftHull[i])
-            elif (leftHull[i].y() <= leftHull[-1].y()) & (i <= lowerLeftEndIndex):
-                finalPoints.append(leftHull[i])
-
-        for i in range(0, len(rightHull)):
-            if (rightHull[i].y() >= rightHull[0].y()) & (i >= upperRightEndIndex):
-                finalPoints.append(rightHull[i])
-            elif (rightHull[i].y() <= rightHull[0].y()) & (i >= lowerRightEndIndex):
-                finalPoints.append(rightHull[i])
-
+        finalPoints = leftHull[:leftEndIndex+1]+rightHull[rightEndIndex:]
         return finalPoints
 
-def isAbove(leftEnd, rightEnd, testpoints):
-    slope = (rightEnd.y()-leftEnd.y())/(rightEnd.x()-leftEnd.x())
-    for p in testpoints:
-        if p not in (leftEnd, rightEnd):
-            if (p.x()-leftEnd.x())*slope+leftEnd.y() < p.y():
-                return False
-    return True
+def QPointBottomHull(points):
+    if len(points) <= 3:
+        return points
+    else:
+        leftHull = QPointBottomHull(points[:len(points)//2])
+        rightHull = QPointBottomHull(points[len(points)//2:])
+        #find upper connection first:
+        leftEndIndex = len(leftHull) - 1
+        rightEndIndex = 0
+        modified = True
+        while modified:
+            modified = False
+            while not isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull):
+                leftEndIndex = (leftEndIndex - 1) % len(leftHull)
+                modified = True
+            while not isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull):
+                rightEndIndex = (rightEndIndex + 1) % len(rightHull)
+                modified = True
+
+        finalPoints = leftHull[:leftEndIndex+1]+rightHull[rightEndIndex:]
+        return finalPoints
+
+
+def getAngle(a, b, c):
+    return QLineF(b, a).angleTo(QLineF(b,c))
+def isConvex(left, center, right):
+    slope = (right.y()-left.y())/(right.x()-left.x())
+    return (center.x()-left.x())*slope+left.y() < center.y()
 
 def isBelow(leftEnd, rightEnd, testpoints):
     slope = (rightEnd.y() - leftEnd.y()) / (rightEnd.x() - leftEnd.x())
     for p in testpoints:
         if p not in (leftEnd, rightEnd):
-            if (p.x() - leftEnd.x()) * slope + leftEnd.y() > p.y():
+            if ((p.x() - leftEnd.x()) * slope + leftEnd.y()) < p.y():
+                return False
+    return True
+
+def isAbove(leftEnd, rightEnd, testpoints):
+    slope = (rightEnd.y() - leftEnd.y()) / (rightEnd.x() - leftEnd.x())
+    for p in testpoints:
+        if p not in (leftEnd, rightEnd):
+            if ((p.x() - leftEnd.x()) * slope + leftEnd.y()) > p.y():
                 return False
     return True
 
@@ -175,4 +196,28 @@ def pointsToLines(points):
             bottomPoints.append(p)
     orderedPoints = topPoints + [points[-1]] + bottomPoints[::-1]
     return [QLineF(orderedPoints[i],orderedPoints[(i+1)%len(points)]) for i in range(len(points))]
+
+def QPointTop2(points):
+    finalPoints = points[:2]
+    for i in range(2, len(points)):
+        finalPoints.append(points[i])
+        while len(finalPoints)>2:
+            if isAbove2(finalPoints[-3], finalPoints[-2], finalPoints[-1]):
+                break
+            finalPoints.pop(-2)
+    return finalPoints
+
+def QPointBottom2(points):
+    finalPoints = points[:2]
+    for i in range(2, len(points)):
+        finalPoints.append(points[i])
+        while len(finalPoints)>2:
+            if not isAbove2(finalPoints[-3], finalPoints[-2], finalPoints[-1]):
+                break
+            finalPoints.pop(-2)
+    return finalPoints
+def isAbove2(leftEnd, p, rightEnd):
+    slope = (rightEnd.y() - leftEnd.y()) / (rightEnd.x() - leftEnd.x())
+    return ((p.x() - leftEnd.x()) * slope + leftEnd.y()) < p.y()
+
 
