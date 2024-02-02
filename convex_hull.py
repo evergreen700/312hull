@@ -66,21 +66,17 @@ class ConvexHullSolver(QObject):
         assert( type(points) == list and type(points[0]) == QPointF )
 
         t1 = time.time()
-        # TODO: SORT THE POINTS BY INCREASING X-VALUE
         points.sort(key=lambda p: p.x())
         t2 = time.time()
         t3 = time.time()
-        # this is a dummy polygon of the first 3 unsorted points
         polygon = topBottomSplit(points)
-
-        #[QLineF(points[i],points[(i+1)%3]) for i in range(3)]
         # TODO: REPLACE THE LINE ABOVE WITH A CALL TO YOUR DIVIDE-AND-CONQUER CONVEX HULL SOLVER
         t4 = time.time()
 
         # when passing lines to the display, pass a list of QLineF objects.  Each QLineF
         # object can be created with two QPointF objects corresponding to the endpoints
         self.showHull(polygon,RED)
-        self.showText('Time Elapsed (Convex Hull): {:3.3f} sec'.format(t4-t3))
+        self.showText('Time Elapsed (Convex Hull): {:3.5f} sec'.format(t4-t3))
 
 
 def QPointXSort(points):
@@ -114,12 +110,12 @@ def topBottomSplit(points):
     bottomPoints.append(points[-1])
 
     topHull = QPointTopHull(topPoints)
-    bottomHull = QPointBottomHull(bottomPoints[::-1])
-    orderedPoints = topHull[:-1]+bottomHull[:-1]
+    bottomHull = QPointBottomHull(bottomPoints)
+    orderedPoints = topHull[:-1]+bottomHull[-1:0:-1]
     return [QLineF(orderedPoints[i], orderedPoints[(i + 1) % len(orderedPoints)]) for i in range(len(orderedPoints))]
 
 def QPointTopHull(points):
-    if len(points) <= 3:
+    if len(points) <= 2:
         return points
     else:
         leftHull = QPointTopHull(points[:len(points)//2])
@@ -130,10 +126,10 @@ def QPointTopHull(points):
         modified = True
         while modified:
             modified = False
-            while isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull): #(getAngle(leftHull[leftEndIndex-1], leftHull[leftEndIndex], rightHull[rightEndIndex]) < 180) & (leftEndIndex > 0):
+            while isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull[:leftEndIndex]): #(getAngle(leftHull[leftEndIndex-1], leftHull[leftEndIndex], rightHull[rightEndIndex]) < 180) & (leftEndIndex > 0):
                 leftEndIndex = (leftEndIndex - 1)
                 modified = True
-            while isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull): #(getAngle(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull[rightEndIndex+1-len(rightHull)]) < 180) & (rightEndIndex < len(rightHull)):
+            while isBelow(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull[rightEndIndex+1:]): #(getAngle(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull[rightEndIndex+1-len(rightHull)]) < 180) & (rightEndIndex < len(rightHull)):
                 rightEndIndex = (rightEndIndex + 1)
                 modified = True
 
@@ -141,7 +137,7 @@ def QPointTopHull(points):
         return finalPoints
 
 def QPointBottomHull(points):
-    if len(points) <= 3:
+    if len(points) <= 2:
         return points
     else:
         leftHull = QPointBottomHull(points[:len(points)//2])
@@ -152,10 +148,10 @@ def QPointBottomHull(points):
         modified = True
         while modified:
             modified = False
-            while isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull):
+            while isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], leftHull[:leftEndIndex]):
                 leftEndIndex = (leftEndIndex - 1)
                 modified = True
-            while isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull):
+            while isAbove(leftHull[leftEndIndex], rightHull[rightEndIndex], rightHull[rightEndIndex+1:]):
                 rightEndIndex = (rightEndIndex + 1)
                 modified = True
 
@@ -167,15 +163,13 @@ def QPointBottomHull(points):
 def isBelow(leftEnd, rightEnd, testpoints):
     slope = (rightEnd.y() - leftEnd.y()) / (rightEnd.x() - leftEnd.x())
     for p in testpoints:
-        if p not in (leftEnd, rightEnd):
-            if ((p.x() - leftEnd.x()) * slope + leftEnd.y()) < p.y():
-                return True
+        if ((p.x() - leftEnd.x()) * slope + leftEnd.y()) < p.y():
+            return True
     return False
 
 def isAbove(leftEnd, rightEnd, testpoints):
     slope = (rightEnd.y() - leftEnd.y()) / (rightEnd.x() - leftEnd.x())
     for p in testpoints:
-        if p not in (leftEnd, rightEnd):
-            if ((p.x() - leftEnd.x()) * slope + leftEnd.y()) > p.y():
-                return True
+        if ((p.x() - leftEnd.x()) * slope + leftEnd.y()) > p.y():
+            return True
     return False
